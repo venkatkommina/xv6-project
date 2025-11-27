@@ -142,9 +142,41 @@ walkaddr(pagetable_t pagetable, uint64 va)
 
 
 #if defined(LAB_PGTBL) || defined(SOL_MMAP) || defined(SOL_COW)
+// Helper function to recursively print page table entries
+void
+vmprintrec(pagetable_t pagetable, int level, uint64 va_base) {
+  // there are 2^9 = 512 PTEs in a page table.
+  for(int i = 0; i < 512; i++){
+    pte_t pte = pagetable[i];
+    if(pte & PTE_V){
+      // Print indentation based on depth (level 2 = "..", level 1 = ".. ..", level 0 = ".. .. ..")
+      for(int j = 2; j > level; j--){
+        printf(".. ");
+      }
+      
+      // Calculate virtual address by combining base with current index
+      uint64 va = va_base | ((uint64)i << PXSHIFT(level));
+      
+      // Extract physical address from PTE
+      uint64 pa = PTE2PA(pte);
+      
+      // Print the PTE information
+      printf("..%p: pte %p pa %p\n", (void*)va, (void*)pte, (void*)pa);
+      
+      // If this is not a leaf page (doesn't have R/W/X bits), recurse
+      if((pte & (PTE_R|PTE_W|PTE_X)) == 0){
+        // this PTE points to a lower-level page table.
+        uint64 child = PTE2PA(pte);
+        vmprintrec((pagetable_t)child, level - 1, va);
+      }
+    }
+  }
+}
+
 void
 vmprint(pagetable_t pagetable) {
-  // your code here
+  printf("page table %p\n", (void*)pagetable);
+  vmprintrec(pagetable, 2, 0);
 }
 #endif
 
