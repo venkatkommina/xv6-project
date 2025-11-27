@@ -111,3 +111,78 @@ pop_off(void)
   if(c->noff == 0 && c->intena)
     intr_on();
 }
+
+#ifdef LAB_LOCK
+// Initialize read-write spinlock
+void
+rw_initlock(struct rwspinlock *lk, char *name)
+{
+  initlock(&lk->lock, "rwlock_base");
+  lk->readers = 0;
+  lk->writer = 0;
+  lk->writer_waiting = 0;
+  lk->name = name;
+}
+
+// Acquire read lock
+// Multiple readers can hold the lock simultaneously
+// Must wait if a writer is active or waiting (writer priority)
+void
+read_acquire(struct rwspinlock *lk)
+{
+  acquire(&lk->lock);
+  
+  // Wait if writer is active or waiting (writer priority)
+  while(lk->writer || lk->writer_waiting) {
+    release(&lk->lock);
+    acquire(&lk->lock);
+  }
+  
+  lk->readers++;
+  release(&lk->lock);
+}
+
+// Release read lock
+void
+read_release(struct rwspinlock *lk)
+{
+  acquire(&lk->lock);
+  lk->readers--;
+  if(lk->readers < 0)
+    panic("read_release");
+  release(&lk->lock);
+}
+
+// Acquire write lock
+// Only one writer can hold the lock at a time
+// No readers can be active when writer holds the lock
+void
+write_acquire(struct rwspinlock *lk)
+{
+  acquire(&lk->lock);
+  
+  // Signal to readers that a writer is waiting (writer priority)
+  lk->writer_waiting = 1;
+  
+  // Wait until no readers and no active writer
+  while(lk->readers > 0 || lk->writer) {
+    release(&lk->lock);
+    acquire(&lk->lock);
+  }
+  
+  lk->writer = 1;
+  lk->writer_waiting = 0;
+  release(&lk->lock);
+}
+
+// Release write lock
+void
+write_release(struct rwspinlock *lk)
+{
+  acquire(&lk->lock);
+  if(!lk->writer)
+    panic("write_release");
+  lk->writer = 0;
+  release(&lk->lock);
+}
+#endif

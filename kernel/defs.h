@@ -122,6 +122,7 @@ void            pop_off(void);
 int             atomic_read4(int *addr);
 #ifdef LAB_LOCK
 void            freelock(struct spinlock*);
+void            rw_initlock(struct rwspinlock*, char*);
 void            read_acquire(struct rwspinlock*);
 void            read_release(struct rwspinlock*);
 void            write_acquire(struct rwspinlock*);
@@ -156,7 +157,11 @@ void            syscall();
 extern uint     ticks;
 void            trapinit(void);
 void            trapinithart(void);
+#ifdef LAB_LOCK
+extern struct rwspinlock tickslock;
+#else
 extern struct spinlock tickslock;
+#endif
 void            prepare_return(void);
 
 // uart.c
